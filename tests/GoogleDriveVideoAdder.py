@@ -4,10 +4,9 @@ from src.Classes.GoogleDriveVideoAdder import GoogleDriveVideoAdder
 from dotenv import load_dotenv
 import os
 import json
-
-chrome_profile_path = os.getenv("CHROME_PROFILE_PATH")
-
 load_dotenv()
+
+chrome_profile_path = os.environ.get("CHROME_PROFILE_PATH")
 logger = logging.getLogger(__name__)
 
 directory_id = "1XiXV6uBuOjJDsVoBrNLfyKdqGYUeL1YV"

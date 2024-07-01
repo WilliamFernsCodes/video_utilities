@@ -23,14 +23,12 @@ def set_element_innertext(driver, element, text):
     driver.execute_script("arguments[0].innerText = arguments[1];", element, text)
 
 def new_driver(chrome_profile_path: str):
-    if not chrome_profile_path:
-        raise Exception("Chrome profile path not found")
     options = uc.ChromeOptions()
     options.add_argument("--disable-notifications")  # Disable notifications
     options.add_argument("--disable-popup-blocking")  # Disable popup blocking
-    options.add_argument(f"user-data-dir={chrome_profile_path}")
-    driver = uc.Chrome(options=options)
-    driver = uc.Chrome()
+    profile_path = chrome_profile_path.replace("/", "\\")
+    options.add_argument(f"user-data-dir={profile_path}")
+    driver = uc.Chrome(options=options, use_subprocess=True)
     return driver
 
 def gen_random_string(length=8):
