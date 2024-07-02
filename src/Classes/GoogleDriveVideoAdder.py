@@ -78,6 +78,7 @@ downloadSequentially();
 
             logger.info(f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded. Still downloading...")
             time.sleep(10)
+
     def __rename_and_unzip(self):
         all_zip_paths = os.listdir(self.downloads_path)
         for download_path in all_zip_paths:
@@ -97,9 +98,9 @@ downloadSequentially();
                 os.system(f"unzip {name_after} -d ${temp_dir}")
                 temp_dir_children = os.listdir(temp_dir)
                 if len(temp_dir_children) == 1:
-                    os.rename(os.path.join(temp_dir, temp_dir_children[0]), output_path)
+                    os.rename(os.path.join(temp_dir, temp_dir_children[0]), output_path.replace(".zip", ""))
                 else:
-                    os.rename(temp_dir, output_path)
+                    os.rename(temp_dir, output_path.replace("zip", ""))
 
             else:
                 os.remove(os.path.join(self.downloads_path, download_path))
