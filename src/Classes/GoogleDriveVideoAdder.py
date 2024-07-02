@@ -13,7 +13,7 @@ class GoogleDriveVideoAdder:
         self.downloads_path = download_path
 
     def get_final_video(self):
-        # self._download_videos()
+        self._download_videos()
         path_to_remove = "\\home\\adonis\\.config\\chromium\\Profile 1/Default/Preferences"
         if os.path.exists(path_to_remove):
             os.remove(path_to_remove)
@@ -21,18 +21,7 @@ class GoogleDriveVideoAdder:
         self._add_videos_together()
 
     def _add_videos_together(self):
-        all_zip_paths = os.listdir(self.downloads_path)
-        for download_path in all_zip_paths:
-            # see if the file name first 2 characters are in the range of 1 and 31
-            first_two_chars = download_path[:2]
-            first_char = download_path[0]
-            if (first_two_chars.isdigit() and int(first_two_chars) in range(1, 32)) or (first_char.isdigit() and not download_path[1].isdigit()):
-                if first_two_chars.isdigit():
-                    os.rename(os.path.join(self.downloads_path, download_path), os.path.join(self.downloads_path, f"{first_two_chars}.zip"))
-                else:
-                    os.rename(os.path.join(self.downloads_path, download_path), os.path.join(self.downloads_path, f"{first_char}.zip"))
-            else:
-                os.remove(os.path.join(self.downloads_path, download_path))
+        self._rename_and_unzip()
 
     def _download_videos(self):
         params = {
@@ -58,7 +47,7 @@ async function downloadSequentially() {
     const buttons = document.querySelectorAll("div[role='button'][aria-label='Download']");
     
     for (const button of buttons) {
-        await sleep(5000);
+        await sleep(10000);
         console.log("Clicking button");
         button.click();
     }
@@ -68,10 +57,31 @@ downloadSequentially();
         # execute script
         self.driver.execute_script(download_function)
         while True:
-            total_downloaded_files = len(os.listdir(self.downloads_path))
-            time.sleep(10)
+            total_downloaded_files = 0
+            for file_name in os.listdir(self.downloads_path):
+                if file_name.endswith(".zip"):
+                    total_downloaded_files += 1
+
             if total_downloaded_files == len(all_download_buttons):
                 logger.info(f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded")
                 break
 
             logger.info(f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded. Still downloading...")
+            time.sleep(10)
+    def _rename_and_unzip(self):
+        all_zip_paths = os.listdir(self.downloads_path)
+        for download_path in all_zip_paths:
+            # see if the file name first 2 characters are in the range of 1 and 31
+            first_two_chars = download_path[:2]
+            first_char = download_path[0]
+            if (first_two_chars.isdigit() and int(first_two_chars) in range(1, 32)) or (first_char.isdigit() and not download_path[1].isdigit()):
+                name_before = os.path.join(self.downloads_path, download_path)
+                if first_two_chars.isdigit():
+                    name_after = os.path.join(self.downloads_path, f"{first_two_chars}.zip")
+                else:
+                    name_after = os.path.join(self.downloads_path, f"{first_char}.zip")
+                os.rename(name_before, name_after)
+                # unzip folder
+                os.system(f"unzip {name_after} -d {self.downloads_path}")
+            else:
+                os.remove(os.path.join(self.downloads_path, download_path))
