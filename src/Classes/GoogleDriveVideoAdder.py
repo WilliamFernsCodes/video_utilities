@@ -21,7 +21,9 @@ class GoogleDriveVideoAdder:
         self._add_videos_together()
 
     def _add_videos_together(self):
-        self._rename_and_unzip()
+        self.__rename_and_unzip()
+        self.__remove_zip_files()
+        self.__order_video_files()
 
     def _download_videos(self):
         params = {
@@ -44,10 +46,17 @@ function sleep(ms) {
 }
 
 async function downloadSequentially() {
-    const buttons = document.querySelectorAll("div[role='button'][aria-label='Download']");
+    const allChildrenContainer = document.evaluate(
+      "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div",
+      document,
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null
+    ).singleNodeValue;
+    const buttons = allChildrenContainer.querySelectorAll("div[role='button'][aria-label='Download']");
     
     for (const button of buttons) {
-        await sleep(10000);
+        await sleep(Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
         console.log("Clicking button");
         button.click();
     }
@@ -68,7 +77,7 @@ downloadSequentially();
 
             logger.info(f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded. Still downloading...")
             time.sleep(10)
-    def _rename_and_unzip(self):
+    def __rename_and_unzip(self):
         all_zip_paths = os.listdir(self.downloads_path)
         for download_path in all_zip_paths:
             # see if the file name first 2 characters are in the range of 1 and 31
@@ -85,3 +94,15 @@ downloadSequentially();
                 os.system(f"unzip {name_after} -d {self.downloads_path}")
             else:
                 os.remove(os.path.join(self.downloads_path, download_path))
+
+
+    def __order_video_files(self):
+        return
+
+    def __remove_zip_files(self):
+        logger.info("Removing all zip files")
+        all_files = os.listdir(self.downloads_path)
+        for file_name in all_files:
+            if file_name.endswith(".zip"):
+                logger.info(f"Removing {file_name}...")
+                os.remove(os.path.join(self.downloads_path, file_name))
