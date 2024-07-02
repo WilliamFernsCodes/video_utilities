@@ -26,9 +26,13 @@ def new_driver(chrome_profile_path: str):
     options = uc.ChromeOptions()
     options.add_argument("--disable-notifications")  # Disable notifications
     options.add_argument("--disable-popup-blocking")  # Disable popup blocking
+    prefs = {"download.default_directory": "/tmp"}
+    options.add_experimental_option("prefs", prefs)
+
     profile_path = chrome_profile_path.replace("/", "\\")
     options.add_argument(f"user-data-dir={profile_path}")
-    driver = uc.Chrome(options=options, use_subprocess=True)
+
+    driver = uc.Chrome(options=options)
     return driver
 
 def gen_random_string(length=8):
