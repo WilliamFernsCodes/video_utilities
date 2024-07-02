@@ -56,14 +56,15 @@ async function downloadSequentially() {
     const buttons = allChildrenContainer.querySelectorAll("div[role='button'][aria-label='Download']");
     
     for (const button of buttons) {
-        await sleep(Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
+        const sleepDuration = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
+            console.log(`Waiting for ${Math.floor(sleepDuration / 1000)} seconds...`)
+        await sleep(sleepDuration);
         console.log("Clicking button");
         button.click();
     }
 }
 downloadSequentially();
         """
-        # execute script
         self.driver.execute_script(download_function)
         while True:
             total_downloaded_files = 0
@@ -91,10 +92,17 @@ downloadSequentially();
                     name_after = os.path.join(self.downloads_path, f"{first_char}.zip")
                 os.rename(name_before, name_after)
                 # unzip folder
-                os.system(f"unzip {name_after} -d {self.downloads_path}")
+                output_path = os.path.join(self.downloads_path, name_after)
+                temp_dir = os.path.join(self.downloads_path, 'temp')
+                os.system(f"unzip {name_after} -d ${temp_dir}")
+                temp_dir_children = os.listdir(temp_dir)
+                if len(temp_dir_children) == 1:
+                    os.rename(os.path.join(temp_dir, temp_dir_children[0]), output_path)
+                else:
+                    os.rename(temp_dir, output_path)
+
             else:
                 os.remove(os.path.join(self.downloads_path, download_path))
-
 
     def __order_video_files(self):
         return
