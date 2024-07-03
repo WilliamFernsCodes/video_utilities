@@ -22,8 +22,6 @@ class GoogleDriveVideoAdder:
 
     def _add_videos_together(self):
         self.__rename_and_unzip()
-        self.__remove_zip_files()
-        self.__order_video_files()
 
     def _download_videos(self):
         params = {
@@ -81,32 +79,34 @@ downloadSequentially();
 
     def __rename_and_unzip(self):
         all_zip_paths = os.listdir(self.downloads_path)
-        for download_path in all_zip_paths:
+        for zip_name in all_zip_paths:
             # see if the file name first 2 characters are in the range of 1 and 31
-            first_two_chars = download_path[:2]
-            first_char = download_path[0]
+            first_two_chars = zip_name[:2]
+            first_char = zip_name[0]
+            zip_output_path = os.path.join(self.downloads_path, zip_name)
             if (first_two_chars.isdigit() and int(first_two_chars) in range(1, 32)) or (first_char.isdigit() and not download_path[1].isdigit()):
-                name_before = os.path.join(self.downloads_path, download_path)
-                if first_two_chars.isdigit():
-                    name_after = os.path.join(self.downloads_path, f"{first_two_chars}.zip")
-                else:
-                    name_after = os.path.join(self.downloads_path, f"{first_char}.zip")
-                os.rename(name_before, name_after)
                 # unzip folder
-                output_path = os.path.join(self.downloads_path, name_after)
                 temp_dir = os.path.join(self.downloads_path, 'temp')
-                os.system(f"unzip {name_after} -d ${temp_dir}")
-                temp_dir_children = os.listdir(temp_dir)
-                if len(temp_dir_children) == 1:
-                    os.rename(os.path.join(temp_dir, temp_dir_children[0]), output_path.replace(".zip", ""))
-                else:
-                    os.rename(temp_dir, output_path.replace("zip", ""))
+                if not os.path.exists(temp_dir):
+                    os.mkdir(temp_dir)
 
+                os.system(f"unzip {zip_output_path} -d ${self.downloads_path}")
             else:
-                os.remove(os.path.join(self.downloads_path, download_path))
+                os.remove(zip_output_path)
 
-    def __order_video_files(self):
-        return
+        self.__remove_zip_files()
+        all_unzipped_names = os.listdir(self.downloads_path)
+        for unzipped_name in all_unzipped_names:
+            name_before = os.path.join(self.downloads_path, unzipped_name)
+            first_two_chars = unzipped_name[:2]
+            first_char = unzipped_name[0]
+
+            if first_two_chars.isdigit():
+                name_after = os.path.join(self.downloads_path, f"{first_two_chars}")
+            else:
+                name_after = os.path.join(self.downloads_path, f"{first_char}")
+
+            os.rename(name_before, name_after)
 
     def __remove_zip_files(self):
         logger.info("Removing all zip files")
