@@ -9,11 +9,13 @@ logger = logging.getLogger()
 class GoogleDriveVideoAdder:
     def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
         self.directory_url = f"https://drive.google.com/drive/folders/{directory_id}"
-        self.driver = new_driver(chrome_profile_path=chrome_profile_path)
+        # self.driver = new_driver(chrome_profile_path=chrome_profile_path)
         self.downloads_path = download_path
+        if not os.path.exists(download_path):
+            os.mkdir(download_path)
 
     def get_final_video(self):
-        self._download_videos()
+        # self._download_videos()
         path_to_remove = "\\home\\adonis\\.config\\chromium\\Profile 1/Default/Preferences"
         if os.path.exists(path_to_remove):
             os.remove(path_to_remove)
@@ -80,21 +82,16 @@ downloadSequentially();
     def __rename_and_unzip(self):
         all_zip_paths = os.listdir(self.downloads_path)
         for zip_name in all_zip_paths:
-            # see if the file name first 2 characters are in the range of 1 and 31
             first_two_chars = zip_name[:2]
             first_char = zip_name[0]
             zip_output_path = os.path.join(self.downloads_path, zip_name)
-            if (first_two_chars.isdigit() and int(first_two_chars) in range(1, 32)) or (first_char.isdigit() and not download_path[1].isdigit()):
-                # unzip folder
-                temp_dir = os.path.join(self.downloads_path, 'temp')
-                if not os.path.exists(temp_dir):
-                    os.mkdir(temp_dir)
+            if (first_two_chars.isdigit() and int(first_two_chars) in range(1, 32)) or (first_char.isdigit() and not zip_name[1].isdigit()):
+                logger.info("Unzipping file...")
+                os.system(f"unzip '{zip_output_path}' -d {self.downloads_path}/")
 
-                os.system(f"unzip {zip_output_path} -d ${self.downloads_path}")
-            else:
-                os.remove(zip_output_path)
+            logger.info("Removing zip file")
+            os.remove(zip_output_path)
 
-        self.__remove_zip_files()
         all_unzipped_names = os.listdir(self.downloads_path)
         for unzipped_name in all_unzipped_names:
             name_before = os.path.join(self.downloads_path, unzipped_name)
@@ -102,9 +99,9 @@ downloadSequentially();
             first_char = unzipped_name[0]
 
             if first_two_chars.isdigit():
-                name_after = os.path.join(self.downloads_path, f"{first_two_chars}")
+                name_after = os.path.join(self.downloads_path, first_two_chars)
             else:
-                name_after = os.path.join(self.downloads_path, f"{first_char}")
+                name_after = os.path.join(self.downloads_path, first_char)
 
             os.rename(name_before, name_after)
 
