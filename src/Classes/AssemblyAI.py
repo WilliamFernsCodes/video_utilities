@@ -9,10 +9,10 @@ class AssemblyAI:
         aai.settings.api_key = api_key
         self.debugging = False
 
-    def get_video_transcription(self, video_path: str):
-        logger.info("Transcribing video...")
+    def get_audio_transcription(self, audio_path: str):
+        logger.info("Transcribing audio...")
         transcriber = aai.Transcriber()
-        transcript = transcriber.transcribe(video_path)
+        transcript = transcriber.transcribe(audio_path)
         transcript = transcript.wait_for_completion()
         if transcript.json_response and "text" in transcript.json_response:
             logger.info(

@@ -6,6 +6,7 @@ from moviepy.editor import VideoFileClip
 from src.Classes.AssemblyAI import AssemblyAI
 import time
 import os
+import json
 
 logger = logging.getLogger()
 
@@ -19,30 +20,32 @@ class GoogleDriveVideoAdder:
         )
         self.driver = new_driver(chrome_profile_path=chrome_profile_path)
         self.downloads_path = download_path
+        self.debugging = False
         self.final_assets_path = os.path.join(
             self.downloads_path, "final_assets"
         )
         os.makedirs(self.downloads_path, exist_ok=True)
+        self.debugging_output_assets_path = os.path.abspath("./debugging_output_assets")
 
-    def get_final_video(self):
+    def get_final_video(self, assembly_api_key: str):
         # self._download_videos()
+        self.driver.quit()
         path_to_remove = (
             "\\home\\adonis\\.config\\chromium\\Profile 1/Default/Preferences"
         )
         if os.path.exists(path_to_remove):
             os.remove(path_to_remove)
 
-        self._add_videos_together()
+        self._add_videos_together(assembly_api_key)
 
-    def _add_videos_together(self):
+    def _add_videos_together(self, assembly_api_key: str):
         # self.__rename_and_unzip()
         # all_assets_paths = self.__get_all_assets_paths();
         # logger.info(f"Total number of assets: {len(all_assets_paths)}")
 
         # remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
         # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
-        video_transcripts = self._get_video_transcripts()
-
+        video_transcripts = self._get_video_transcripts(assembly_api_key)
     def _download_videos(self):
         params = {
             "behavior": "allow",
@@ -113,6 +116,8 @@ downloadSequentially();
                 f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded. Still downloading..."
             )
             time.sleep(10)
+
+        self.driver.quit()
 
     def __rename_and_unzip(self):
         all_zip_paths = os.listdir(self.downloads_path)
@@ -195,7 +200,7 @@ downloadSequentially();
                     f"rm -rf '{os.path.join(self.downloads_path, folder)}'"
                 )
 
-    def _get_video_transcripts(self):
+    def _get_video_transcripts(self, assembly_api_key: str):
         final_assets_paths = os.listdir(self.final_assets_path)
         mov_files_paths: List[str] = []
         for final_assets_path in final_assets_paths:
@@ -216,7 +221,27 @@ downloadSequentially();
             return
 
         logger.info(f"Total number of audio files: {len(audio_paths)}")
-        # assembly_ai = AssemblyAI()
+        assembly_ai = AssemblyAI(api_key=assembly_api_key)
+        all_transcripts = []
+        for audio_path in audio_paths:
+            parsed_transcript = assembly_ai.parse_transcript(assembly_ai.get_audio_transcription(audio_path))
+            append_dict = {
+                "parsed_transcript": parsed_transcript,
+                "audio_path": audio_path,
+            }
+            all_transcripts.append(append_dict)
+
+            if self.debugging:
+                audio_transcript_output_path = os.path.join(
+                    self.debugging_output_assets_path, "audio_transcripts"
+                )
+                logger.info(f"Saving audio transcripts to '{audio_transcript_output_path}'...")
+                with open(audio_transcript_output_path, "w") as f:
+                    f.write(json.dumps(all_transcripts, indent=4))
+
+
+        return all_transcripts
+
 
     def _convert_files_audio(
         self, file_type: str, file_paths: List[str], output_path: str
