@@ -1,7 +1,7 @@
 import logging
 from typing import List, Union
 from undetected_chromedriver import By
-from src.utils import new_driver, find_element 
+from src.utils import new_driver, find_element
 from moviepy.editor import VideoFileClip
 from src.Classes.AssemblyAI import AssemblyAI
 import time
@@ -9,17 +9,26 @@ import os
 
 logger = logging.getLogger()
 
+
 class GoogleDriveVideoAdder:
-    def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
-        self.directory_url = f"https://drive.google.com/drive/folders/{directory_id}"
+    def __init__(
+        self, directory_id: str, chrome_profile_path: str, download_path: str
+    ):
+        self.directory_url = (
+            f"https://drive.google.com/drive/folders/{directory_id}"
+        )
         self.driver = new_driver(chrome_profile_path=chrome_profile_path)
         self.downloads_path = download_path
-        self.final_assets_path = os.path.join(self.downloads_path , "final_assets")
+        self.final_assets_path = os.path.join(
+            self.downloads_path, "final_assets"
+        )
         os.makedirs(self.downloads_path, exist_ok=True)
 
     def get_final_video(self):
         # self._download_videos()
-        path_to_remove = "\\home\\adonis\\.config\\chromium\\Profile 1/Default/Preferences"
+        path_to_remove = (
+            "\\home\\adonis\\.config\\chromium\\Profile 1/Default/Preferences"
+        )
         if os.path.exists(path_to_remove):
             os.remove(path_to_remove)
 
@@ -41,13 +50,26 @@ class GoogleDriveVideoAdder:
         }
         self.driver.execute_cdp_cmd("Page.setDownloadBehavior", params)
         self.driver.get(self.directory_url)
-        files_and_folders_container = find_element(self.driver, "xpath", "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div")
-        all_children_elems = files_and_folders_container.find_elements(By.CSS_SELECTOR, "c-wiz")
+        files_and_folders_container = find_element(
+            self.driver,
+            "xpath",
+            "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div",
+        )
+        all_children_elems = files_and_folders_container.find_elements(
+            By.CSS_SELECTOR, "c-wiz"
+        )
         # allow download of multiple files
-        logger.info(f"Total number of files and folders: {len(all_children_elems)}")
-        all_children_container = self.driver.find_element(By.XPATH, "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div")
+        logger.info(
+            f"Total number of files and folders: {len(all_children_elems)}"
+        )
+        all_children_container = self.driver.find_element(
+            By.XPATH,
+            "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div",
+        )
         # get all download buttons inside the all_children_container
-        all_download_buttons = all_children_container.find_elements(By.CSS_SELECTOR, "div[role='button'][aria-label='Download']")
+        all_download_buttons = all_children_container.find_elements(
+            By.CSS_SELECTOR, "div[role='button'][aria-label='Download']"
+        )
         print(f"Total number of download buttons: {len(all_download_buttons)}")
         download_function = """
 function sleep(ms) {
@@ -82,10 +104,14 @@ downloadSequentially();
                     total_downloaded_files += 1
 
             if total_downloaded_files == len(all_download_buttons):
-                logger.info(f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded")
+                logger.info(
+                    f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded"
+                )
                 break
 
-            logger.info(f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded. Still downloading...")
+            logger.info(
+                f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded. Still downloading..."
+            )
             time.sleep(10)
 
     def __rename_and_unzip(self):
@@ -94,9 +120,14 @@ downloadSequentially();
             first_two_chars = zip_name[:2]
             first_char = zip_name[0]
             zip_output_path = os.path.join(self.downloads_path, zip_name)
-            if (first_two_chars.isdigit() and int(first_two_chars) in range(1, 32)) or (first_char.isdigit() and not zip_name[1].isdigit()):
+            if (
+                first_two_chars.isdigit()
+                and int(first_two_chars) in range(1, 32)
+            ) or (first_char.isdigit() and not zip_name[1].isdigit()):
                 logger.info("Unzipping file...")
-                os.system(f"unzip '{zip_output_path}' -d '{self.downloads_path}'/")
+                os.system(
+                    f"unzip '{zip_output_path}' -d '{self.downloads_path}'/"
+                )
 
             logger.info("Removing zip file")
             os.remove(zip_output_path)
@@ -114,18 +145,19 @@ downloadSequentially();
 
             os.rename(name_before, name_after)
 
-
-
     def __get_all_assets_paths(self):
         all_folders = os.listdir(self.downloads_path)
-        all_folders_path = [os.path.join(self.downloads_path, folder) for folder in all_folders]
+        all_folders_path = [
+            os.path.join(self.downloads_path, folder) for folder in all_folders
+        ]
         all_assets_paths = []
         for path in all_folders_path:
             all_children = os.listdir(path)
-            all_assets_paths.extend(os.path.join(path, child) for child in all_children)
+            all_assets_paths.extend(
+                os.path.join(path, child) for child in all_children
+            )
 
         return all_assets_paths
-
 
     def __remove_unecessary_assets(self, all_assets_paths):
         os.makedirs(self.final_assets_path, exist_ok=True)
@@ -136,35 +168,49 @@ downloadSequentially();
             file_extension = path.split(".")[-1]
 
             if path.lower().endswith(".mov"):
-                new_path_name = os.path.join(self.final_assets_path, f"{file_name_parent_path}_face_recording.MOV")
+                new_path_name = os.path.join(
+                    self.final_assets_path,
+                    f"{file_name_parent_path}_face_recording.MOV",
+                )
                 os.rename(path, new_path_name)
 
-            elif path.lower().endswith(".mkv") or path.lower().endswith(".mp4"):
-                new_path_name = os.path.join(self.final_assets_path, f"{file_name_parent_path}_screen_recording.{file_extension}")
+            elif path.lower().endswith(".mkv") or path.lower().endswith(
+                ".mp4"
+            ):
+                new_path_name = os.path.join(
+                    self.final_assets_path,
+                    f"{file_name_parent_path}_screen_recording.{file_extension}",
+                )
                 os.rename(path, new_path_name)
 
         self.__remove_extracted_folders()
         return os.listdir(self.final_assets_path)
-
 
     def __remove_extracted_folders(self):
         all_folders = os.listdir(self.downloads_path)
         exclude_folders = ["final_assets"]
         for folder in all_folders:
             if folder not in exclude_folders:
-                os.system(f"rm -rf '{os.path.join(self.downloads_path, folder)}'")
-
+                os.system(
+                    f"rm -rf '{os.path.join(self.downloads_path, folder)}'"
+                )
 
     def _get_video_transcripts(self):
         final_assets_paths = os.listdir(self.final_assets_path)
-        mov_files_paths : List[str] = []
+        mov_files_paths: List[str] = []
         for final_assets_path in final_assets_paths:
             if final_assets_path.lower().endswith(".mov"):
-                path_to_append : str = os.path.join(self.final_assets_path, final_assets_path)
+                path_to_append: str = os.path.join(
+                    self.final_assets_path, final_assets_path
+                )
                 mov_files_paths.append(path_to_append)
 
         audio_output_path = os.path.abspath("./video_audio")
-        audio_paths = self._convert_files_audio(file_type="mov", file_paths=mov_files_paths, output_path=audio_output_path)
+        audio_paths = self._convert_files_audio(
+            file_type="mov",
+            file_paths=mov_files_paths,
+            output_path=audio_output_path,
+        )
         if not audio_paths:
             logger.error("No audio files found")
             return
@@ -172,7 +218,9 @@ downloadSequentially();
         logger.info(f"Total number of audio files: {len(audio_paths)}")
         # assembly_ai = AssemblyAI()
 
-    def _convert_files_audio(self, file_type: str, file_paths: List[str], output_path: str) -> Union[List[str], None]:
+    def _convert_files_audio(
+        self, file_type: str, file_paths: List[str], output_path: str
+    ) -> Union[List[str], None]:
         os.makedirs(output_path, exist_ok=True)
         allowed_file_types = ["mov", "mp4", "mkv"]
         if file_type not in allowed_file_types:
@@ -187,7 +235,7 @@ downloadSequentially();
             video_audio = video.audio
             if not video_audio:
                 logger.error(f"Video {file_path} has no audio")
-                return;
+                return
 
             video_audio.write_audiofile(audio_path)
             audio_paths.append(audio_path)
