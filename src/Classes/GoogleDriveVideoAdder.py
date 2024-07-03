@@ -1,6 +1,8 @@
+from __future__ import absolute_import
 import logging
 from undetected_chromedriver import By
 from src.utils import new_driver, find_element 
+from moviepy.editor import VideoFileClip
 import time
 import os
 
@@ -9,7 +11,7 @@ logger = logging.getLogger()
 class GoogleDriveVideoAdder:
     def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
         self.directory_url = f"https://drive.google.com/drive/folders/{directory_id}"
-        # self.driver = new_driver(chrome_profile_path=chrome_profile_path)
+        self.driver = new_driver(chrome_profile_path=chrome_profile_path)
         self.downloads_path = download_path
         if not os.path.exists(download_path):
             os.mkdir(download_path)
@@ -23,7 +25,12 @@ class GoogleDriveVideoAdder:
         self._add_videos_together()
 
     def _add_videos_together(self):
-        self.__rename_and_unzip()
+        # self.__rename_and_unzip()
+        all_assets_paths = self.__get_all_assets_paths();
+        logger.info(f"Total number of assets: {len(all_assets_paths)}")
+
+        remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
+        logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
 
     def _download_videos(self):
         params = {
@@ -87,7 +94,7 @@ downloadSequentially();
             zip_output_path = os.path.join(self.downloads_path, zip_name)
             if (first_two_chars.isdigit() and int(first_two_chars) in range(1, 32)) or (first_char.isdigit() and not zip_name[1].isdigit()):
                 logger.info("Unzipping file...")
-                os.system(f"unzip '{zip_output_path}' -d {self.downloads_path}/")
+                os.system(f"unzip '{zip_output_path}' -d '{self.downloads_path}'/")
 
             logger.info("Removing zip file")
             os.remove(zip_output_path)
@@ -105,10 +112,44 @@ downloadSequentially();
 
             os.rename(name_before, name_after)
 
-    def __remove_zip_files(self):
-        logger.info("Removing all zip files")
-        all_files = os.listdir(self.downloads_path)
-        for file_name in all_files:
-            if file_name.endswith(".zip"):
-                logger.info(f"Removing {file_name}...")
-                os.remove(os.path.join(self.downloads_path, file_name))
+
+
+    def __get_all_assets_paths(self):
+        all_folders = os.listdir(self.downloads_path)
+        all_folders_path = [os.path.join(self.downloads_path, folder) for folder in all_folders]
+        all_assets_paths = []
+        for path in all_folders_path:
+            all_children = os.listdir(path)
+            all_assets_paths.extend(os.path.join(path, child) for child in all_children)
+
+        return all_assets_paths
+
+
+    def __remove_unecessary_assets(self, all_assets_paths):
+        final_assets_path = os.path.join(self.downloads_path , "final_assets")
+        if not os.path.exists(final_assets_path):
+            os.mkdir(final_assets_path)
+
+        for path in all_assets_paths:
+            absolute_dir_path = os.path.dirname(path)
+            file_name_parent_path = absolute_dir_path.split("/")[-1]
+            file_extension = path.split(".")[-1]
+
+            if path.lower().endswith(".mov"):
+                new_path_name = os.path.join(final_assets_path, f"{file_name_parent_path}_face_recording.MOV")
+                os.rename(path, new_path_name)
+
+            elif path.lower().endswith(".mkv") or path.lower().endswith(".mp4"):
+                new_path_name = os.path.join(final_assets_path, f"{file_name_parent_path}_screen_recording.{file_extension}")
+                os.rename(path, new_path_name)
+
+        self.__remove_extracted_folders()
+        return os.listdir(final_assets_path)
+
+
+    def __remove_extracted_folders(self):
+        all_folders = os.listdir(self.downloads_path)
+        exclude_folders = ["final_assets"]
+        for folder in all_folders:
+            if folder not in exclude_folders:
+                os.system(f"rm -rf '{os.path.join(self.downloads_path, folder)}'")
