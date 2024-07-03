@@ -1,8 +1,9 @@
-from __future__ import absolute_import
 import logging
+from typing import List, Union
 from undetected_chromedriver import By
 from src.utils import new_driver, find_element 
 from moviepy.editor import VideoFileClip
+from src.Classes.AssemblyAI import AssemblyAI
 import time
 import os
 
@@ -13,8 +14,8 @@ class GoogleDriveVideoAdder:
         self.directory_url = f"https://drive.google.com/drive/folders/{directory_id}"
         self.driver = new_driver(chrome_profile_path=chrome_profile_path)
         self.downloads_path = download_path
-        if not os.path.exists(download_path):
-            os.mkdir(download_path)
+        self.final_assets_path = os.path.join(self.downloads_path , "final_assets")
+        os.makedirs(self.downloads_path, exist_ok=True)
 
     def get_final_video(self):
         # self._download_videos()
@@ -26,11 +27,12 @@ class GoogleDriveVideoAdder:
 
     def _add_videos_together(self):
         # self.__rename_and_unzip()
-        all_assets_paths = self.__get_all_assets_paths();
-        logger.info(f"Total number of assets: {len(all_assets_paths)}")
+        # all_assets_paths = self.__get_all_assets_paths();
+        # logger.info(f"Total number of assets: {len(all_assets_paths)}")
 
-        remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
-        logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
+        # remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
+        # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
+        video_transcripts = self._get_video_transcripts()
 
     def _download_videos(self):
         params = {
@@ -126,9 +128,7 @@ downloadSequentially();
 
 
     def __remove_unecessary_assets(self, all_assets_paths):
-        final_assets_path = os.path.join(self.downloads_path , "final_assets")
-        if not os.path.exists(final_assets_path):
-            os.mkdir(final_assets_path)
+        os.makedirs(self.final_assets_path, exist_ok=True)
 
         for path in all_assets_paths:
             absolute_dir_path = os.path.dirname(path)
@@ -136,15 +136,15 @@ downloadSequentially();
             file_extension = path.split(".")[-1]
 
             if path.lower().endswith(".mov"):
-                new_path_name = os.path.join(final_assets_path, f"{file_name_parent_path}_face_recording.MOV")
+                new_path_name = os.path.join(self.final_assets_path, f"{file_name_parent_path}_face_recording.MOV")
                 os.rename(path, new_path_name)
 
             elif path.lower().endswith(".mkv") or path.lower().endswith(".mp4"):
-                new_path_name = os.path.join(final_assets_path, f"{file_name_parent_path}_screen_recording.{file_extension}")
+                new_path_name = os.path.join(self.final_assets_path, f"{file_name_parent_path}_screen_recording.{file_extension}")
                 os.rename(path, new_path_name)
 
         self.__remove_extracted_folders()
-        return os.listdir(final_assets_path)
+        return os.listdir(self.final_assets_path)
 
 
     def __remove_extracted_folders(self):
@@ -153,3 +153,42 @@ downloadSequentially();
         for folder in all_folders:
             if folder not in exclude_folders:
                 os.system(f"rm -rf '{os.path.join(self.downloads_path, folder)}'")
+
+
+    def _get_video_transcripts(self):
+        final_assets_paths = os.listdir(self.final_assets_path)
+        mov_files_paths : List[str] = []
+        for final_assets_path in final_assets_paths:
+            if final_assets_path.lower().endswith(".mov"):
+                path_to_append : str = os.path.join(self.final_assets_path, final_assets_path)
+                mov_files_paths.append(path_to_append)
+
+        audio_output_path = os.path.abspath("./video_audio")
+        audio_paths = self._convert_files_audio(file_type="mov", file_paths=mov_files_paths, output_path=audio_output_path)
+        if not audio_paths:
+            logger.error("No audio files found")
+            return
+
+        logger.info(f"Total number of audio files: {len(audio_paths)}")
+        # assembly_ai = AssemblyAI()
+
+    def _convert_files_audio(self, file_type: str, file_paths: List[str], output_path: str) -> Union[List[str], None]:
+        os.makedirs(output_path, exist_ok=True)
+        allowed_file_types = ["mov", "mp4", "mkv"]
+        if file_type not in allowed_file_types:
+            logger.error(f"File type {file_type} not allowed")
+            return None
+
+        audio_paths = []
+        for file_path in file_paths:
+            video = VideoFileClip(file_path)
+            video_name = os.path.basename(file_path).split(".")[0]
+            audio_path = os.path.join(output_path, f"{video_name}.mp3")
+            video_audio = video.audio
+            if not video_audio:
+                logger.error(f"Video {file_path} has no audio")
+                return;
+
+            video_audio.write_audiofile(audio_path)
+            audio_paths.append(audio_path)
+        return audio_paths

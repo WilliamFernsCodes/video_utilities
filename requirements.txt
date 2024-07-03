@@ -2,3 +2,5 @@ python-dotenv
 undetected-chromedriver
 setuptools
 moviepy
+assemblyai
+ffmpeg
