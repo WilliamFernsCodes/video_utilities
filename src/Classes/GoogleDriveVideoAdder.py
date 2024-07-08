@@ -34,24 +34,24 @@ class GoogleDriveVideoAdder:
         self.debugging_output_assets_path = os.path.abspath("./debugging_output_assets")
 
     def get_final_video(self, assembly_api_key: str):
-        self._download_videos()
+        # self._download_videos()
         self.driver.quit()
         path_to_remove = r"\home\adonis\.config\chromium\Profile 1"
         if os.path.exists(path_to_remove):
             subprocess.run(['rm', '-rf', path_to_remove], check=True)
 
-        # self._add_videos_together(assembly_api_key)
+        self._add_videos_together(assembly_api_key)
 
     def _add_videos_together(self, assembly_api_key: str):
         self.__rename_and_unzip()
-        all_assets_paths = self.__get_all_assets_paths();
-        logger.info(f"Total number of assets: {len(all_assets_paths)}")
-
-        remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
-        logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
-        video_transcripts = self._get_video_transcripts(assembly_api_key)
-        final_videos = self.__shorten_transcript(video_transcripts)
-
+        # all_assets_paths = self.__get_all_assets_paths();
+        # logger.info(f"Total number of assets: {len(all_assets_paths)}")
+        #
+        # remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
+        # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
+        # video_transcripts = self._get_video_transcripts(assembly_api_key)
+        # final_videos = self.__shorten_transcript(video_transcripts)
+        #
     def _download_videos(self):
         params = {
             "behavior": "allow",
@@ -103,34 +103,46 @@ class GoogleDriveVideoAdder:
 
     def __rename_and_unzip(self):
         all_zip_paths = os.listdir(self.downloads_path)
-        for zip_name in all_zip_paths:
-            first_two_chars = zip_name[:2]
-            first_char = zip_name[0]
-            zip_output_path = os.path.join(self.downloads_path, zip_name)
-            if (
-                first_two_chars.isdigit()
-                and int(first_two_chars) in range(1, 32)
-            ) or (first_char.isdigit() and not zip_name[1].isdigit()):
-                logger.info("Unzipping file...")
-                os.system(
-                    f"unzip '{zip_output_path}' -d '{self.downloads_path}'/"
-                )
+        for index, zip_name in enumerate(all_zip_paths):
+            zip_path = os.path.join(self.downloads_path, zip_name)
+            zip_path = os.path.join(self.downloads_path, f"{index+1}")
+            os.system(
+                f"unzip '{zip_path}' -d '{output_path}'"
+            )
 
-            logger.info("Removing zip file")
-            os.remove(zip_output_path)
-
-        all_unzipped_names = os.listdir(self.downloads_path)
-        for unzipped_name in all_unzipped_names:
-            name_before = os.path.join(self.downloads_path, unzipped_name)
-            first_two_chars = unzipped_name[:2]
-            first_char = unzipped_name[0]
-
-            if first_two_chars.isdigit():
-                name_after = os.path.join(self.downloads_path, first_two_chars)
+        downloads_children = os.listdir(self.downloads_path)
+        # remove all the zip files
+        for child in downloads_children:
+            child_path = os.path.join(self.downloads_path, child)
+            if child_path.endswith(".zip"):
+                os.remove(child_path)
             else:
-                name_after = os.path.join(self.downloads_path, first_char)
+                # move the content out of the folder, into the downloads directory
+                folder_children_paths = [os.path.join(child_path, child) for child in os.listdir(child_path)]
+                all_folder_children_folders_paths = []
+                planned_destination_paths = []
+                for folder_child_path in folder_children_paths: 
+                    folders_in_folder_child_path_paths = [os.path.join(folder_child_path, folder_name) for folder_name in os.listdir(folder_child_path)]
+                    planned_destination_paths.extend([os.path.join(self.downloads_path, folder_name) for folder_name in os.listdir(folder_child_path)])
+                    all_folder_children_folders_paths.extend(folders_in_folder_child_path_paths)
 
-            os.rename(name_before, name_after)
+                files_to_move = []
+                for index, planned_path in enumerate(planned_destination_paths):
+                    current_path = all_folder_children_folders_paths[index]
+                    if os.path.exists(planned_path):
+                        already_exising_path_size = os.path.getsize(planned_path) / (1024 * 1024)
+                        current_path_size = os.path.getsize(current_path) / (1024 * 1024)
+                        if already_exising_path_size < current_path_size:
+                            os.remove(planned_path)
+                            files_to_move.append(current_path)
+                        # else, the already existing path is the same or bigger size.
+                    else:
+                        files_to_move.append(current_path)
+                        
+                # move all the files out of the folder, inside the downloads path
+                os.system(f"mv {' '.join(files_to_move)} {self.downloads_path}")
+                # delete the child_path
+                os.system(f"rm -rf {child_path}")
 
     def __get_all_assets_paths(self):
         all_folders = os.listdir(self.downloads_path)
