@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from typing import List, Union, TypedDict
-
+import subprocess
 from moviepy.editor import VideoFileClip
 from undetected_chromedriver import By
 
@@ -33,25 +33,23 @@ class GoogleDriveVideoAdder:
         self.debugging_output_assets_path = os.path.abspath("./debugging_output_assets")
 
     def get_final_video(self, assembly_api_key: str):
-        # self._download_videos()
+        self._download_videos()
         self.driver.quit()
-        path_to_remove = (
-            "\\home\\adonis\\.config\\chromium\\Profile 1/Default/Preferences"
-        )
+        path_to_remove = r"\home\adonis\.config\chromium\Profile 1"
         if os.path.exists(path_to_remove):
-            os.remove(path_to_remove)
+            subprocess.run(['rm', '-rf', path_to_remove], check=True)
 
         self._add_videos_together(assembly_api_key)
 
     def _add_videos_together(self, assembly_api_key: str):
-        # self.__rename_and_unzip()
-        # all_assets_paths = self.__get_all_assets_paths();
-        # logger.info(f"Total number of assets: {len(all_assets_paths)}")
+        self.__rename_and_unzip()
+        all_assets_paths = self.__get_all_assets_paths();
+        logger.info(f"Total number of assets: {len(all_assets_paths)}")
 
         remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
-        # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
+        logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
         video_transcripts = self._get_video_transcripts(assembly_api_key)
-        final_videos = self.__remove_video_pauses(video_transcripts)
+        final_videos = self.__shorten_transcript(video_transcripts)
 
     def _download_videos(self):
         params = {
@@ -241,18 +239,19 @@ downloadSequentially();
                 with open(audio_transcript_output_path, "w") as f:
                     f.write(json.dumps(all_transcripts, indent=4))
 
-
         return all_transcripts
 
 
     def _convert_files_audio(
-        self, file_type: str, file_paths: List[str], output_path: str
-    ) -> Union[List[str], None]:
+        self,
+        file_type: str,
+        file_paths: List[str],
+        output_path: str
+    ) -> List[str]:
         os.makedirs(output_path, exist_ok=True)
         allowed_file_types = ["mov", "mp4", "mkv"]
         if file_type not in allowed_file_types:
-            logger.error(f"File type {file_type} not allowed")
-            return None
+            raise Exception(f"File type {file_type} not allowed")
 
         audio_paths = []
         for file_path in file_paths:
@@ -261,13 +260,15 @@ downloadSequentially();
             audio_path = os.path.join(output_path, f"{video_name}.mp3")
             video_audio = video.audio
             if not video_audio:
-                logger.error(f"Video {file_path} has no audio")
-                return
+                raise Exception(f"Video {file_path} has no audio")
 
             video_audio.write_audiofile(audio_path)
             audio_paths.append(audio_path)
         return audio_paths
 
 
-    def __remove_video_pauses(self, transcripts):
+    def __shorten_transcript(self, transcripts):
+        """
+
+        """
         return
