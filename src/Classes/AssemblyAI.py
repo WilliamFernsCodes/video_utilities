@@ -1,6 +1,5 @@
 import assemblyai as aai
 from logging import getLogger
-
 logger = getLogger(__name__)
 
 class AssemblyAI:

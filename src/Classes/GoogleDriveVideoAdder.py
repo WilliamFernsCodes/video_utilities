@@ -1,15 +1,20 @@
-import logging
-from typing import List, Union
-from undetected_chromedriver import By
-from src.utils import new_driver, find_element
-from moviepy.editor import VideoFileClip
-from src.Classes.AssemblyAI import AssemblyAI
-import time
-import os
 import json
+import logging
+import os
+import time
+from typing import List, Union, TypedDict
 
+from moviepy.editor import VideoFileClip
+from undetected_chromedriver import By
+
+from src.Classes.AssemblyAI import AssemblyAI
+from src.utils import new_driver, find_element
+from models import AssemblyAIParsedTranscriptType
 logger = logging.getLogger()
 
+class AudioTranscriptType(TypedDict):
+    audio_path: str
+    parsed_transcript: List[AssemblyAIParsedTranscriptType]
 
 class GoogleDriveVideoAdder:
     def __init__(
@@ -43,9 +48,11 @@ class GoogleDriveVideoAdder:
         # all_assets_paths = self.__get_all_assets_paths();
         # logger.info(f"Total number of assets: {len(all_assets_paths)}")
 
-        # remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
+        remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
         # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
         video_transcripts = self._get_video_transcripts(assembly_api_key)
+        final_videos = self.__remove_video_pauses(video_transcripts)
+
     def _download_videos(self):
         params = {
             "behavior": "allow",
@@ -167,26 +174,21 @@ downloadSequentially();
     def __remove_unecessary_assets(self, all_assets_paths):
         os.makedirs(self.final_assets_path, exist_ok=True)
 
+        # exclude all the files that do not end with "mkv, mov, and mp4"
+        files_to_include = ["mov", "mkv", "mp4"]
+        include_files = []
         for path in all_assets_paths:
-            absolute_dir_path = os.path.dirname(path)
-            file_name_parent_path = absolute_dir_path.split("/")[-1]
+            if path.lower().endswith(tuple(files_to_include)):
+                include_files.append(path)
+
+        for index, path in enumerate(include_files):
             file_extension = path.split(".")[-1]
 
-            if path.lower().endswith(".mov"):
-                new_path_name = os.path.join(
-                    self.final_assets_path,
-                    f"{file_name_parent_path}_face_recording.MOV",
-                )
-                os.rename(path, new_path_name)
-
-            elif path.lower().endswith(".mkv") or path.lower().endswith(
-                ".mp4"
-            ):
-                new_path_name = os.path.join(
-                    self.final_assets_path,
-                    f"{file_name_parent_path}_screen_recording.{file_extension}",
-                )
-                os.rename(path, new_path_name)
+            new_path_name = os.path.join(
+                self.final_assets_path,
+                f"{index+1}_face_recording.{file_extension}",
+            )
+            os.rename(path, new_path_name)
 
         self.__remove_extracted_folders()
         return os.listdir(self.final_assets_path)
@@ -233,7 +235,7 @@ downloadSequentially();
 
             if self.debugging:
                 audio_transcript_output_path = os.path.join(
-                    self.debugging_output_assets_path, "audio_transcripts"
+                    self.debugging_output_assets_path, "audio_transcripts.json"
                 )
                 logger.info(f"Saving audio transcripts to '{audio_transcript_output_path}'...")
                 with open(audio_transcript_output_path, "w") as f:
@@ -265,3 +267,7 @@ downloadSequentially();
             video_audio.write_audiofile(audio_path)
             audio_paths.append(audio_path)
         return audio_paths
+
+
+    def __remove_video_pauses(self, transcripts):
+        return
