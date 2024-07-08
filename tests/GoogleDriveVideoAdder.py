@@ -3,7 +3,6 @@ import logging
 from src.Classes.GoogleDriveVideoAdder import GoogleDriveVideoAdder
 from dotenv import load_dotenv
 import os
-
 load_dotenv()
 
 chrome_profile_path = os.environ.get("CHROME_PROFILE_PATH")

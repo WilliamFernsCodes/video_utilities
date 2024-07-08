@@ -2,13 +2,13 @@ import json
 import logging
 import os
 import time
-from typing import List, Union, TypedDict
+from typing import List, TypedDict
 import subprocess
 from moviepy.editor import VideoFileClip
 from undetected_chromedriver import By
 
 from src.Classes.AssemblyAI import AssemblyAI
-from src.utils import new_driver, find_element
+from src.utils import new_driver, find_element 
 from models import AssemblyAIParsedTranscriptType
 logger = logging.getLogger()
 
@@ -21,9 +21,10 @@ class GoogleDriveVideoAdder:
         self, directory_id: str, chrome_profile_path: str, download_path: str
     ):
         self.directory_url = (
-            f"https://drive.google.com/drive/folders/{directory_id}"
+            f"https://drive.google.com/drive/my-drive"
         )
         self.driver = new_driver(chrome_profile_path=chrome_profile_path)
+        self.directory_id = directory_id
         self.downloads_path = download_path
         self.debugging = False
         self.final_assets_path = os.path.join(
@@ -39,7 +40,7 @@ class GoogleDriveVideoAdder:
         if os.path.exists(path_to_remove):
             subprocess.run(['rm', '-rf', path_to_remove], check=True)
 
-        self._add_videos_together(assembly_api_key)
+        # self._add_videos_together(assembly_api_key)
 
     def _add_videos_together(self, assembly_api_key: str):
         self.__rename_and_unzip()
@@ -58,70 +59,46 @@ class GoogleDriveVideoAdder:
         }
         self.driver.execute_cdp_cmd("Page.setDownloadBehavior", params)
         self.driver.get(self.directory_url)
-        files_and_folders_container = find_element(
-            self.driver,
-            "xpath",
-            "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div",
-        )
-        all_children_elems = files_and_folders_container.find_elements(
-            By.CSS_SELECTOR, "c-wiz"
-        )
-        # allow download of multiple files
-        logger.info(
-            f"Total number of files and folders: {len(all_children_elems)}"
-        )
-        all_children_container = self.driver.find_element(
-            By.XPATH,
-            "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div",
-        )
-        # get all download buttons inside the all_children_container
-        all_download_buttons = all_children_container.find_elements(
-            By.CSS_SELECTOR, "div[role='button'][aria-label='Download']"
-        )
-        print(f"Total number of download buttons: {len(all_download_buttons)}")
-        download_function = """
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
-async function downloadSequentially() {
-    const allChildrenContainer = document.evaluate(
-      "/html/body/div[3]/div/div[5]/div[2]/div/div/c-wiz/div/c-wiz/div[1]/c-wiz/div[2]/c-wiz/div[1]/c-wiz/c-wiz/div",
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null
-    ).singleNodeValue;
-    const buttons = allChildrenContainer.querySelectorAll("div[role='button'][aria-label='Download']");
-    
-    for (const button of buttons) {
-        const sleepDuration = Math.floor(Math.random() * (10000 - 5000 + 1)) + 5000;
-            console.log(`Waiting for ${Math.floor(sleepDuration / 1000)} seconds...`)
-        await sleep(sleepDuration);
-        console.log("Clicking button");
-        button.click();
-    }
-}
-downloadSequentially();
+        download_folder_script = f"""
+            const folderContainer = document.querySelector("div[data-id='{self.directory_id}']");
+            const downloadButton = folderContainer.querySelector("div[role='button'][aria-label='Download']");
+            downloadButton ? downloadButton.click() : console.log('Download button not found')
         """
-        self.driver.execute_script(download_function)
-        while True:
-            total_downloaded_files = 0
-            for file_name in os.listdir(self.downloads_path):
-                if file_name.endswith(".zip"):
-                    total_downloaded_files += 1
 
-            if total_downloaded_files == len(all_download_buttons):
-                logger.info(
-                    f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded"
-                )
+        self.driver.execute_script(download_folder_script)
+        logger.info("Waiting for files to zip...")
+        zip_timeout = 600
+        while True:
+            is_downloading = self.__is_downloading()
+            logger.info(f"Is downloading: {is_downloading}")
+            if is_downloading or not zip_timeout:
                 break
 
-            logger.info(
-                f"{total_downloaded_files}/{len(all_download_buttons)} files downloaded. Still downloading..."
-            )
+            logger.info("Still unzipping...")
             time.sleep(10)
+            zip_timeout -= 10
 
+        if not zip_timeout:
+            raise Exception("Zip timed out")
+
+        logger.info("Done zipping folder. Waiting for downloads to finish...") 
+        download_timeout = 600
+        # while check_downloads(self.driver) and download_timeout:
+        while True:
+            is_downloading = self.__is_downloading()
+            logger.info(f"Is downloading: {is_downloading}")
+            if not is_downloading or not download_timeout:
+                break
+
+            logger.info("Still downloading...")
+            time.sleep(10)
+            download_timeout -= 10
+
+        if not download_timeout:
+            raise Exception("Download timed out")
+
+        logger.info("Downloaded all zip folders successfully...")
         self.driver.quit()
 
     def __rename_and_unzip(self):
@@ -266,6 +243,14 @@ downloadSequentially();
             audio_paths.append(audio_path)
         return audio_paths
 
+    def __is_downloading(self):
+        if os.path.exists(self.downloads_path) and len(os.listdir(self.downloads_path)) > 0:
+            # see if any of the files has a .crdownload extension
+            for file in os.listdir(self.downloads_path):
+                if file.endswith(".crdownload"):
+                    return True
+            return False
+        return False
 
     def __shorten_transcript(self, transcripts):
         """
