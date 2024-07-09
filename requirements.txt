@@ -4,3 +4,5 @@ setuptools
 moviepy
 assemblyai
 ffmpeg
+openai
+

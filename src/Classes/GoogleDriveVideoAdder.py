@@ -1,15 +1,17 @@
 import json
 import logging
 import os
-import time
 from typing import List, TypedDict
 import subprocess
 from moviepy.editor import VideoFileClip
 
-from src.Classes.AssemblyAI import AssemblyAI
+from src.Classes.utils.AssemblyAI import AssemblyAI
+from src.Classes.utils.ChatCompletion import ChatCompletion
 from src.utils import new_driver, get_path_size_mb
 from models import AssemblyAIParsedTranscriptType
 logger = logging.getLogger()
+
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
 
 class AudioTranscriptType(TypedDict):
     audio_path: str
@@ -42,15 +44,15 @@ class GoogleDriveVideoAdder:
         self._add_videos_together(assembly_api_key)
 
     def _add_videos_together(self, assembly_api_key: str):
-        self.__rename_and_unzip()
-        # all_assets_paths = self.__get_all_assets_paths();
-        # logger.info(f"Total number of assets: {len(all_assets_paths)}")
-        #
-        # remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
-        # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
-        # video_transcripts = self._get_video_transcripts(assembly_api_key)
-        # final_videos = self.__shorten_transcript(video_transcripts)
-        #
+        # self.__rename_and_unzip()
+        all_assets_paths = self.__get_all_assets_paths();
+        logger.info(f"Total number of assets: {len(all_assets_paths)}")
+
+        remaining_assets_paths = self.__remove_unecessary_assets(all_assets_paths)
+        logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
+        video_transcripts = self._get_video_transcripts(assembly_api_key)
+        final_videos = self.__shorten_transcript(video_transcripts)
+
     # def _download_videos(self):
     #     params = {
     #         "behavior": "allow",
@@ -147,12 +149,10 @@ class GoogleDriveVideoAdder:
                 os.system(f"rm -rf {child_path}")
 
     def __get_all_assets_paths(self):
-        all_folders = os.listdir(self.downloads_path)
-        all_folders_path = [
-            os.path.join(self.downloads_path, folder) for folder in all_folders
-        ]
+        all_folders_paths = [os.path.join(self.downloads_path, folder) for folder in os.listdir(self.downloads_path)]
+
         all_assets_paths = []
-        for path in all_folders_path:
+        for path in all_folders_paths:
             all_children = os.listdir(path)
             all_assets_paths.extend(
                 os.path.join(path, child) for child in all_children
@@ -163,14 +163,49 @@ class GoogleDriveVideoAdder:
     def __remove_unecessary_assets(self, all_assets_paths):
         os.makedirs(self.final_assets_path, exist_ok=True)
 
-        # exclude all the files that do not end with "mkv, mov, and mp4"
-        files_to_include = ["mov", "mkv", "mp4"]
-        include_files = []
-        for path in all_assets_paths:
-            if path.lower().endswith(tuple(files_to_include)):
-                include_files.append(path)
+        face_recording_files = [path for path in all_assets_paths if path.lower().split(".")[-1] == "mov"]
 
-        for index, path in enumerate(include_files):
+        # the order of how the video will be edited:
+        # 1. oldest to newest
+        #  - start with mov video
+        # - if there is a mp4 or mkv video on the same date, use that then.
+
+        # 1. order the "include_files" from the oldest to newest date.
+        example_output_format = {
+            "oldest_to_newest_ordered_files_array": [
+                ["25may/video_2898.MOV", "25may/afjklda.MOV"],
+                ["26may/face_recording.MOV"],
+                ["3  june/vid.MOV", "3__junee/fun_game.MOV", "3june2024/soccer_field.MOV"],
+                ["9june/vid.MOV"],
+            ]
+        }
+
+        prompt = f"Here are all the paths for my videos: {json.dumps(face_recording_files, indent=4)}. Order them from the oldest to newest date, by looking at the folder name for each file. Group the files that are on the same date together in arrays, if there is only one file on a specific date, add that one file to its own array as well. Keep the paths the exact same, don't modify the path strings. This is an example of your output format, make sure to output in the exact same format, an object with a key 'oldest_to_newest_ordered_files_array', which is an array of arrays, the starting at the oldest to newest dates: {json.dumps(example_output_format, indent=4)}."
+        chat_completion = ChatCompletion("ollama", "llama3", ollama_base_url=OLLAMA_BASE_URL)
+        ordered_video_paths_response = chat_completion.generate(user_message=prompt, json_format=True)
+        if not ordered_video_paths_response:
+            raise Exception("No response from Ollama")
+        
+        if not type(ordered_video_paths_response) == dict:
+            raise Exception("Ollama response is not a dictionary")
+
+        ordered_video_paths_array = ordered_video_paths_response["oldest_to_newest_ordered_files_array"]
+        max_retries = 3
+
+        # vaidate response type
+        while max_retries:
+            if not type(ordered_video_paths_array) == list or not all(type(child) == list for child in ordered_video_paths_array):
+                raise Exception("Response not valid type, retrying again...")
+            else:
+                for child in ordered_video_paths_array:
+                    for path in child:
+                        if type(path) != str:
+                            raise Exception("Response not valid type, retrying again...")
+                        if not os.path.exists(path):
+                            raise Exception(f"Path {path} does not exist")
+                break
+
+        for index, path in enumerate(face_recording_files):
             file_extension = path.split(".")[-1]
 
             new_path_name = os.path.join(
