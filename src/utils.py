@@ -3,6 +3,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
 import random
 import time
+import os
 
 # Short function to find element, using webdriver wait
 def find_element(driver, by, value, timeout=10):
@@ -43,3 +44,16 @@ def simulate_typing(text, element):
     for character in text:
         element.send_keys(character)
         time.sleep(random.uniform(0.05, 0.1))
+
+def get_path_size_mb(path : str) -> float:
+    """Get size in megabytes for a specific path"""
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+
+    total_size_mb = total_size / (1024 * 1024)
+    return round(total_size_mb, 2)
