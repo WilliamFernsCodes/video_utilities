@@ -20,18 +20,18 @@ class AssemblyAI:
         )
         self.transcript_path = "./src/Classes/Bots/json_files/assembly_transcript.json"
 
-    def get_yt_podcast_transcription(
-        self, podcast_download_path: str
+    def get_audio_transcription(
+        self, audio_download_path: str
     ) -> Union[TranscriptResponse, None]:
         """
-        Function to transcribe the podcast, using Youtube Transcript API
+        Function to transcribe the audio, using Youtube Transcript API
         Parameters:
-        - podcast_download_path: str: The path to the downloaded podcast
-        Returns Union[TranscriptResponse, None] - The transcript of the podcast
+        - audio_dowload_path: str: The path to the downloaded audio file
+        Returns Union[TranscriptResponse, None] - The transcript of the audio
         """
-        logger.info("Transcribing podcast...")
+        logger.info("Transcribing audio...")
         transcriber = aai.Transcriber()
-        transcript = transcriber.transcribe(podcast_download_path)
+        transcript = transcriber.transcribe(audio_download_path)
         transcript = transcript.wait_for_completion()
         if transcript.json_response and "text" in transcript.json_response:
             logger.info(

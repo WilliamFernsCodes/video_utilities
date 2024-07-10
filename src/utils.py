@@ -4,6 +4,7 @@ import undetected_chromedriver as uc
 import random
 import time
 import os
+from datetime import datetime
 
 # Short function to find element, using webdriver wait
 def find_element(driver, by, value, timeout=10):
@@ -57,3 +58,22 @@ def get_path_size_mb(path : str) -> float:
 
     total_size_mb = total_size / (1024 * 1024)
     return round(total_size_mb, 2)
+
+
+def get_timestamp(month: str, date: int, year: int) -> int:
+    month_to_number = {
+        'january': 1,
+        'february': 2,
+        'march': 3,
+        'april': 4,
+        'may': 5,
+        'june': 6,
+        'july': 7,
+        'august': 8,
+        'september': 9,
+        'october': 10,
+        'november': 11,
+        'december': 12
+    }
+    month_num = month_to_number[month.lower()]
+    return int(datetime(year, month_num, date).timestamp())

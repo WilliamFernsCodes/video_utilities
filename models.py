@@ -6,3 +6,7 @@ class AssemblyAIParsedTranscriptType(TypedDict):
     end_time: int
     speaker: Optional[str]
 
+class FileType(TypedDict):
+    file_path: str
+    date_month_year: str
+    timestamp: int
