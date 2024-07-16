@@ -1,9 +1,10 @@
 import json
 import logging
 import os
-from typing import List, TypedDict
+import time
+from typing import List, Optional, TypedDict
 import subprocess
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip
 import re
 
 from src.Classes.utils.AssemblyAI import AssemblyAI
@@ -19,21 +20,24 @@ class AudioTranscriptType(TypedDict):
     audio_path: str
     parsed_transcript: List[AssemblyAIParsedTranscriptType]
 
-
-class GoogleDriveVideoAdder:
+class DriveVideoEditor:
     def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
         self.directory_url = f"https://drive.google.com/drive/my-drive"
-        # self.driver = new_driver(chrome_profile_path=chrome_profile_path)
         self.directory_id = directory_id
         self.downloads_path = download_path
         self.debugging = False
         self.final_assets_path = os.path.join(self.downloads_path, "final_assets")
         os.makedirs(self.downloads_path, exist_ok=True)
         self.debugging_output_assets_path = os.path.abspath("./debugging_output_assets")
+        self.chrome_profile_path = chrome_profile_path
+
+class GoogleDriveVideoAdder(DriveVideoEditor):
+    """Class to concatenate all my videos together, along with editing them automatically"""
+    def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
+        super().__init__(directory_id, chrome_profile_path, download_path)
 
     def get_final_video(self, assembly_api_key: str):
         # self._download_videos()
-        # self.driver.quit()
         path_to_remove = r"\home\adonis\.config\chromium\Profile 1"
         if os.path.exists(path_to_remove):
             subprocess.run(["rm", "-rf", path_to_remove], check=True)
@@ -41,64 +45,64 @@ class GoogleDriveVideoAdder:
         self._add_videos_together(assembly_api_key)
 
     def _add_videos_together(self, assembly_api_key: str):
-        self.__rename_and_unzip()
+        # self.__rename_and_unzip()
         all_assets_paths = self.__get_all_assets_paths()
         logger.info(f"Total number of assets: {len(all_assets_paths)}")
 
-        remaining_assets_paths = self.__get_joined_videos_output_paths(all_assets_paths)
+        remaining_assets_paths = self.join_videos_together(all_assets_paths)
         # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
         # video_transcripts = self._get_video_transcripts(assembly_api_key)
         # final_videos = self.__shorten_transcript(video_transcripts)
         #
+    def _download_videos(self):
+        driver = new_driver(chrome_profile_path=self.chrome_profile_path)
+        params = {
+            "behavior": "allow",
+            "downloadPath": self.downloads_path,
+        }
+        driver.execute_cdp_cmd("Page.setDownloadBehavior", params)
+        driver.get(self.directory_url)
 
-    # def _download_videos(self):
-    #     params = {
-    #         "behavior": "allow",
-    #         "downloadPath": self.downloads_path,
-    #     }
-    #     self.driver.execute_cdp_cmd("Page.setDownloadBehavior", params)
-    #     self.driver.get(self.directory_url)
-    #
-    #     download_folder_script = f"""
-    #         const folderContainer = document.querySelector("div[data-id='{self.directory_id}']");
-    #         const downloadButton = folderContainer.querySelector("div[role='button'][aria-label='Download']");
-    #         downloadButton ? downloadButton.click() : console.log('Download button not found')
-    #     """
-    #
-    #     self.driver.execute_script(download_folder_script)
-    #     logger.info("Waiting for files to zip...")
-    #     zip_timeout = 600
-    #     while True:
-    #         is_downloading = self.__is_downloading()
-    #         logger.info(f"Is downloading: {is_downloading}")
-    #         if is_downloading or not zip_timeout:
-    #             break
-    #
-    #         logger.info("Still unzipping...")
-    #         time.sleep(10)
-    #         zip_timeout -= 10
-    #
-    #     if not zip_timeout:
-    #         raise Exception("Zip timed out")
-    #
-    #     logger.info("Done zipping folder. Waiting for downloads to finish...")
-    #     download_timeout = 600
-    #     # while check_downloads(self.driver) and download_timeout:
-    #     while True:
-    #         is_downloading = self.__is_downloading()
-    #         logger.info(f"Is downloading: {is_downloading}")
-    #         if not is_downloading or not download_timeout:
-    #             break
-    #
-    #         logger.info("Still downloading...")
-    #         time.sleep(10)
-    #         download_timeout -= 10
-    #
-    #     if not download_timeout:
-    #         raise Exception("Download timed out")
-    #
-    #     logger.info("Downloaded all zip folders successfully...")
-    #     self.driver.quit()
+        download_folder_script = f"""
+            const folderContainer = document.querySelector("div[data-id='{self.directory_id}']");
+            const downloadButton = folderContainer.querySelector("div[role='button'][aria-label='Download']");
+            downloadButton ? downloadButton.click() : console.log('Download button not found')
+        """
+
+        driver.execute_script(download_folder_script)
+        logger.info("Waiting for files to zip...")
+        zip_timeout = 600
+        while True:
+            is_downloading = self.__is_downloading()
+            logger.info(f"Is downloading: {is_downloading}")
+            if is_downloading or not zip_timeout:
+                break
+
+            logger.info("Still unzipping...")
+            time.sleep(10)
+            zip_timeout -= 10
+
+        if not zip_timeout:
+            raise Exception("Zip timed out")
+
+        logger.info("Done zipping folder. Waiting for downloads to finish...")
+        download_timeout = 600
+        # while check_downloads(driver) and download_timeout:
+        while True:
+            is_downloading = self.__is_downloading()
+            logger.info(f"Is downloading: {is_downloading}")
+            if not is_downloading or not download_timeout:
+                break
+
+            logger.info("Still downloading...")
+            time.sleep(10)
+            download_timeout -= 10
+
+        if not download_timeout:
+            raise Exception("Download timed out")
+
+        logger.info("Downloaded all zip folders successfully...")
+        driver.quit()
 
     def __rename_and_unzip(self):
         all_zip_paths = os.listdir(self.downloads_path)
@@ -172,7 +176,7 @@ class GoogleDriveVideoAdder:
 
         return all_assets_paths
 
-    def __get_joined_videos_output_paths(self, all_assets_paths) -> List[str]:
+    def join_videos_together(self, all_assets_paths) -> List[str]:
         """Join all the videos together from the same date and return the joined videos paths in the correct order"""
         os.makedirs(self.final_assets_path, exist_ok=True)
         ordered_video_dict_list = [
@@ -184,17 +188,16 @@ class GoogleDriveVideoAdder:
             for array in self.__order_video_paths(all_assets_paths)
         ]
         ordered_final_video_output_paths: List[str] = []
+
         for ordered_video_path_array in ordered_video_dict_list:
             output_video_name = "_".join(
                 [str(item) for item in ordered_video_path_array[0]["date_month_year"]]
             )
-            joined_path = os.path.join(
-                self.final_assets_path, f"{output_video_name}.MOV"
-            ).split("/video_utilities")[-1]
+            joined_path = self.__get_video_relative_path(output_video_name=output_video_name)
             ordered_final_video_output_paths.append(joined_path)
             self.join_videos(
                 videos_paths_array=[
-                    "." + dict["file_path"].split("/video_utilities")[-1] for dict in ordered_video_path_array
+                    self.__get_video_relative_path(video_full_path=dict["file_path"]) for dict in ordered_video_path_array
                 ],
                 video_output_path=joined_path,
             )
@@ -387,3 +390,18 @@ class GoogleDriveVideoAdder:
             list(grouped_paths.values()), key=lambda x: x[0]["timestamp"]
         )
         return dict_values
+
+    def __get_video_relative_path(self, video_full_path: Optional[str] = None, output_video_name : Optional[str] = None):
+        """Helper function to convert the video paths to relative paths."""
+        if output_video_name:
+            return "." + f"{self.final_assets_path}/{output_video_name}.MOV".split("/video_utilities")[-1]
+        else:
+            if not video_full_path:
+                raise Exception("video_full_path is required.")
+            else:
+                return "." + video_full_path.split("/video_utilities")[-1]
+
+class GoogleDriveVideoEditorUtils(DriveVideoEditor):
+    def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
+        super().__init__(directory_id, chrome_profile_path, download_path)
+
