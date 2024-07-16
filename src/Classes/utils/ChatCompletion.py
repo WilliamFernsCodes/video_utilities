@@ -145,4 +145,3 @@ class ChatCompletion:
 
             logger.info(f"Ollama Response: {ollama_response}")
             return ollama_response["response"]
-

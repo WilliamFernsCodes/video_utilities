@@ -1,10 +1,12 @@
 import assemblyai as aai
 from logging import getLogger
 from typing import Union, List
+
 logger = getLogger(__name__)
 from assemblyai.types import TranscriptResponse
 from models import AssemblyAIParsedTranscriptType
 import json
+
 
 class AssemblyAI:
     """
@@ -18,7 +20,9 @@ class AssemblyAI:
         self.parsed_transcript_path = (
             "./src/Classes/Bots/json_files/assembly_parsed_transcript.json"
         )
-        self.transcript_path = "./src/Classes/Bots/json_files/assembly_transcript.json"
+        self.transcript_path = (
+            "./src/Classes/Bots/json_files/assembly_transcript.json"
+        )
 
     def get_audio_transcription(
         self, audio_download_path: str
@@ -49,7 +53,9 @@ class AssemblyAI:
         else:
             logger.error("Transcription failed.")
 
-    def parse_transcript(self, transcript) -> List[AssemblyAIParsedTranscriptType]:
+    def parse_transcript(
+        self, transcript
+    ) -> List[AssemblyAIParsedTranscriptType]:
         """Function to parse transcript into full sentences."""
         logger.info("Parsing transcript...")
         all_transcript_words = self.remove_filler_words(transcript["words"])
@@ -98,7 +104,9 @@ class AssemblyAI:
         logger.info("Transcription parsing complete.")
         return full_sentences_transcript
 
-    def remove_filler_words(self, word_dicts_array: List[aai.Word]) -> List[aai.Word]:
+    def remove_filler_words(
+        self, word_dicts_array: List[aai.Word]
+    ) -> List[aai.Word]:
         """
         Function to remove filler words from the transcript
         Parameters:
@@ -121,4 +129,3 @@ class AssemblyAI:
                 final_word_dicts_array.append(word_dict)
 
         return final_word_dicts_array
-

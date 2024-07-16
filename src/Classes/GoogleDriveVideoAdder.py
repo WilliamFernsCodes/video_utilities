@@ -20,20 +20,31 @@ class AudioTranscriptType(TypedDict):
     audio_path: str
     parsed_transcript: List[AssemblyAIParsedTranscriptType]
 
+
 class DriveVideoEditor:
-    def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
+    def __init__(
+        self, directory_id: str, chrome_profile_path: str, download_path: str
+    ):
         self.directory_url = f"https://drive.google.com/drive/my-drive"
         self.directory_id = directory_id
         self.downloads_path = download_path
         self.debugging = False
-        self.final_assets_path = os.path.join(self.downloads_path, "final_assets")
+        self.final_assets_path = os.path.join(
+            self.downloads_path, "final_assets"
+        )
         os.makedirs(self.downloads_path, exist_ok=True)
-        self.debugging_output_assets_path = os.path.abspath("./debugging_output_assets")
+        self.debugging_output_assets_path = os.path.abspath(
+            "./debugging_output_assets"
+        )
         self.chrome_profile_path = chrome_profile_path
+
 
 class GoogleDriveVideoAdder(DriveVideoEditor):
     """Class to concatenate all my videos together, along with editing them automatically"""
-    def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
+
+    def __init__(
+        self, directory_id: str, chrome_profile_path: str, download_path: str
+    ):
         super().__init__(directory_id, chrome_profile_path, download_path)
 
     def get_final_video(self, assembly_api_key: str):
@@ -54,6 +65,7 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         # video_transcripts = self._get_video_transcripts(assembly_api_key)
         # final_videos = self.__shorten_transcript(video_transcripts)
         #
+
     def _download_videos(self):
         driver = new_driver(chrome_profile_path=self.chrome_profile_path)
         params = {
@@ -120,7 +132,8 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
             else:
                 # move the content out of the folder, into the downloads directory
                 folder_children_paths = [
-                    os.path.join(child_path, child) for child in os.listdir(child_path)
+                    os.path.join(child_path, child)
+                    for child in os.listdir(child_path)
                 ]
                 all_folder_children_folders_paths = []
                 planned_destination_paths = []
@@ -141,7 +154,9 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
 
                 files_to_move = []
 
-                for index, planned_path in enumerate(planned_destination_paths):
+                for index, planned_path in enumerate(
+                    planned_destination_paths
+                ):
                     current_path = all_folder_children_folders_paths[index]
                     if os.path.exists(planned_path):
                         # move all the files inside the current path to the already existing path
@@ -166,19 +181,22 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
     def __get_all_assets_paths(self):
         all_folders_paths = [
             os.path.join(self.downloads_path, folder)
-            for folder in os.listdir(self.downloads_path)
+            for folder in os.listdir(self.downloads_path) if folder != "final_assets"
         ]
 
         all_assets_paths = []
         for path in all_folders_paths:
             all_children = os.listdir(path)
-            all_assets_paths.extend(os.path.join(path, child) for child in all_children)
+            all_assets_paths.extend(
+                os.path.join(path, child) for child in all_children
+            )
 
         return all_assets_paths
 
     def join_videos_together(self, all_assets_paths) -> List[str]:
         """Join all the videos together from the same date and return the joined videos paths in the correct order"""
-        os.makedirs(self.final_assets_path, exist_ok=True)
+        os.system(f"rm -rf {self.final_assets_path}")
+        os.makedirs(self.final_assets_path)
         ordered_video_dict_list = [
             sorted(
                 array,
@@ -191,13 +209,21 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
 
         for ordered_video_path_array in ordered_video_dict_list:
             output_video_name = "_".join(
-                [str(item) for item in ordered_video_path_array[0]["date_month_year"]]
+                [
+                    str(item)
+                    for item in ordered_video_path_array[0]["date_month_year"]
+                ]
             )
-            joined_path = self.__get_video_relative_path(output_video_name=output_video_name)
+            joined_path = self.__get_video_relative_path(
+                output_video_name=output_video_name
+            )
             ordered_final_video_output_paths.append(joined_path)
             self.join_videos(
                 videos_paths_array=[
-                    self.__get_video_relative_path(video_full_path=dict["file_path"]) for dict in ordered_video_path_array
+                    self.__get_video_relative_path(
+                        video_full_path=dict["file_path"]
+                    )
+                    for dict in ordered_video_path_array
                 ],
                 video_output_path=joined_path,
             )
@@ -246,7 +272,9 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         exclude_folders = ["final_assets"]
         for folder in all_folders:
             if folder not in exclude_folders:
-                os.system(f"rm -rf '{os.path.join(self.downloads_path, folder)}'")
+                os.system(
+                    f"rm -rf '{os.path.join(self.downloads_path, folder)}'"
+                )
 
     def _get_video_transcripts(self, assembly_api_key: str):
         final_assets_paths = [
@@ -322,10 +350,14 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
             return False
         return False
 
-    def __order_video_paths(self, all_assets_paths: List[str]) -> List[List[FileType]]:
+    def __order_video_paths(
+        self, all_assets_paths: List[str]
+    ) -> List[List[FileType]]:
         """Filter out all the unnecessary paths and order them to be from oldest to newest."""
         face_recording_files = [
-            path for path in all_assets_paths if path.lower().split(".")[-1] == "mov"
+            path
+            for path in all_assets_paths
+            if path.lower().split(".")[-1] == "mov"
         ]
 
         # the order of how the video will be edited:
@@ -334,7 +366,8 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         # - if there is a mp4 or mkv video on the same date, use that then.
 
         all_folders = [
-            path.split("/")[-2].replace(" ", "") for path in face_recording_files
+            path.split("/")[-2].replace(" ", "")
+            for path in face_recording_files
         ]
         regex = re.compile(r"(\d{1,2})([A-Za-z]+)(\d{4})")
         folders_date_month_year = []
@@ -355,7 +388,9 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
                     f"Folder {folder_name}. Date: {match.group(1)}, Month: {match.group(2)}. Year: {match.group(3)}"
                 )
             else:
-                raise Exception(f"Folder {folder_name} is not in correct format.")
+                raise Exception(
+                    f"Folder {folder_name} is not in correct format."
+                )
 
         # Objective: Order the files from the oldest to newest date. All files in same folder (same date), must be in the same list. The final result must be a list of lists
         # How to do it:
@@ -383,7 +418,9 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
                     {
                         "file_path": file_path,
                         "date_month_year": [date, month, year],
-                        "timestamp": get_timestamp(month=month, date=date, year=year),
+                        "timestamp": get_timestamp(
+                            month=month, date=date, year=year
+                        ),
                     }
                 ]
         dict_values: List[List[FileType]] = sorted(
@@ -391,17 +428,28 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         )
         return dict_values
 
-    def __get_video_relative_path(self, video_full_path: Optional[str] = None, output_video_name : Optional[str] = None):
+    def __get_video_relative_path(
+        self,
+        video_full_path: Optional[str] = None,
+        output_video_name: Optional[str] = None,
+    ):
         """Helper function to convert the video paths to relative paths."""
         if output_video_name:
-            return "." + f"{self.final_assets_path}/{output_video_name}.MOV".split("/video_utilities")[-1]
+            return (
+                "."
+                + f"{self.final_assets_path}/{output_video_name}.MOV".split(
+                    "/video_utilities"
+                )[-1]
+            )
         else:
             if not video_full_path:
                 raise Exception("video_full_path is required.")
             else:
                 return "." + video_full_path.split("/video_utilities")[-1]
 
-class GoogleDriveVideoEditorUtils(DriveVideoEditor):
-    def __init__(self, directory_id: str, chrome_profile_path: str, download_path: str):
-        super().__init__(directory_id, chrome_profile_path, download_path)
 
+class GoogleDriveVideoEditorUtils(DriveVideoEditor):
+    def __init__(
+        self, directory_id: str, chrome_profile_path: str, download_path: str
+    ):
+        super().__init__(directory_id, chrome_profile_path, download_path)

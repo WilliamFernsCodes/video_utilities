@@ -1,6 +1,6 @@
 import unittest
 import logging
-from src.Classes.GoogleDriveVideoAdder import GoogleDriveVideoConcatenator
+from src.Classes.GoogleDriveVideoAdder import GoogleDriveVideoAdder
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -16,6 +16,6 @@ class TestGoogleDriveVideoAdder(unittest.TestCase):
     def test_add_video(self):
         if not chrome_profile_path:
             raise Exception("Chrome profile path not found")
-        drive = GoogleDriveVideoConcatenator(directory_id=directory_id, chrome_profile_path=chrome_profile_path, download_path=download_path)
+        drive = GoogleDriveVideoAdder(directory_id=directory_id, chrome_profile_path=chrome_profile_path, download_path=download_path)
         drive.debugging = True
         result = drive.get_final_video(assembly_api_key)
