@@ -8,7 +8,7 @@ from moviepy.editor import VideoFileClip
 import re
 
 from src.Classes.utils.AssemblyAI import AssemblyAI
-from src.utils import get_timestamp, new_driver, get_path_size_mb
+from src.utils import gen_random_string, get_timestamp, new_driver, get_path_size_mb
 from models import AssemblyAIParsedTranscriptType, FileType
 
 logger = logging.getLogger()
@@ -242,26 +242,19 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         try:
             # Prepare the ffmpeg command
             logger.info(f"Joining {len(videos_paths_array)} videos together.")
-            command = ["ffmpeg", "-f", "concat"]
+
+            # sudo ffmpeg -f concat -safe 0 -i videos.txt -vcodec copy -acodec copy merged.MOV
+            filename = f"{gen_random_string(10)}.txt"
+            file_content = ""
             for path in videos_paths_array:
-                command.extend(
-                    [
-                        "-i",
-                        f'"{path}"',
-                    ]
-                )
-            command.extend(
-                [
-                    "-vcodec",
-                    "copy",
-                    "-acodec",
-                    "copy",
-                    video_output_path,
-                ]
-            )
+                file_content += f"file '{path}'\n"
 
-            subprocess.run(command)
+            with open(filename, "w") as f:
+                f.write(file_content)
 
+            command = f"ffmpeg -f concat -safe 0 -i {filename} -vcodec copy -acodec copy {video_output_path}"
+            os.system(command)
+            os.remove(filename)
             return True
         except Exception as e:
             logger.error(f"Error joining videos: {e}")
