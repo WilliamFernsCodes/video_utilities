@@ -4,7 +4,6 @@ class AssemblyAIParsedTranscriptType(TypedDict):
     sentence: str
     start_time: int
     end_time: int
-    speaker: Optional[str]
 
 class FileType(TypedDict):
     file_path: str

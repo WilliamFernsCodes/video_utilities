@@ -65,7 +65,6 @@ class AssemblyAI:
             "sentence": "",
             "start_time": 0,
             "end_time": 0,
-            "speaker": "",
         }
 
         for word_dict in all_transcript_words:
@@ -75,7 +74,6 @@ class AssemblyAI:
                 and not current_sentence_dict["start_time"]
             ):
                 current_sentence_dict["start_time"] = word_dict["start"]
-                current_sentence_dict["speaker"] = word_dict["speaker"]
 
             if current_sentence_dict["sentence"].strip()[-1] in [
                 "?",
@@ -91,7 +89,6 @@ class AssemblyAI:
                     "sentence": "",
                     "start_time": 0,
                     "end_time": 0,
-                    "speaker": "",
                 }
 
         logger.info(

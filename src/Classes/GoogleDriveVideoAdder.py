@@ -5,15 +5,19 @@ import time
 from typing import List, Optional, TypedDict
 import subprocess
 from moviepy.editor import VideoFileClip
+from src.Classes.ChatCompletion import ChatCompletion
 import re
 
 from src.Classes.utils.AssemblyAI import AssemblyAI
-from src.utils import gen_random_string, get_timestamp, new_driver, get_path_size_mb
+from src.utils import (
+    gen_random_string,
+    get_timestamp,
+    new_driver,
+    get_path_size_mb,
+)
 from models import AssemblyAIParsedTranscriptType, FileType
 
 logger = logging.getLogger()
-
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL")
 
 
 class AudioTranscriptType(TypedDict):
@@ -46,6 +50,7 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         self, directory_id: str, chrome_profile_path: str, download_path: str
     ):
         super().__init__(directory_id, chrome_profile_path, download_path)
+        self.ollama_base_url = os.environ.get("OLLAMA_BASE_URL")
 
     def get_final_video(self, assembly_api_key: str):
         # self._download_videos()
@@ -56,15 +61,54 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         self._add_videos_together(assembly_api_key)
 
     def _add_videos_together(self, assembly_api_key: str):
-        # self.__rename_and_unzip()
-        all_assets_paths = self.__get_all_assets_paths()
-        logger.info(f"Total number of assets: {len(all_assets_paths)}")
+        # All Code works entirely in this block:
 
-        remaining_assets_paths = self.join_videos_together(all_assets_paths)
-        # logger.info(f"Total number of remaining assets: {len(remaining_assets_paths)}")
-        # video_transcripts = self._get_video_transcripts(assembly_api_key)
-        # final_videos = self.__shorten_transcript(video_transcripts)
+        #########################################
+        # self.__rename_and_unzip()
+        # all_assets_paths = self.__get_all_assets_paths()
+        # logger.info(f"Total number of assets: {len(all_assets_paths)}")
         #
+        # remaining_assets_paths = self.join_videos_together(all_assets_paths)
+        #########################################
+
+        remaining_assets_paths = [
+            os.path.join(self.final_assets_path, filename)
+            for filename in os.listdir(self.final_assets_path)
+        ]
+        logger.info(
+            f"Total number of remaining assets: {len(remaining_assets_paths)}"
+        )
+        video_transcripts = self._get_video_transcripts(
+            assembly_api_key, remaining_assets_paths, get_audio=False,
+        )
+        final_videos_transcripts_sentences = [
+            self.__shorten_transcript(
+                [dict["sentence"] for dict in video_transcript]
+            )
+            for video_transcript in video_transcripts
+        ]
+
+        final_videos_transcripts_dicts = []
+        for index, sentences_list in enumerate(
+            final_videos_transcripts_sentences
+        ):
+            associated_dict_list = video_transcripts[index]
+            associated_dict_sentences_list = [
+                dict["sentence"] for dict in associated_dict_list
+            ]
+
+            dict_list = (
+                []
+            )  # list of dictionaries with the sentences in the correct order
+            for sentence in sentences_list:
+                for index, dict_sentence in enumerate(
+                    associated_dict_sentences_list
+                ):
+                    if sentence == dict_sentence:
+                        dict_list.append(associated_dict_list[index])
+                        break
+
+            final_videos_transcripts_dicts.append(dict_list)
 
     def _download_videos(self):
         driver = new_driver(chrome_profile_path=self.chrome_profile_path)
@@ -181,7 +225,8 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
     def __get_all_assets_paths(self):
         all_folders_paths = [
             os.path.join(self.downloads_path, folder)
-            for folder in os.listdir(self.downloads_path) if folder != "final_assets"
+            for folder in os.listdir(self.downloads_path)
+            if folder != "final_assets"
         ]
 
         all_assets_paths = []
@@ -269,28 +314,33 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
                     f"rm -rf '{os.path.join(self.downloads_path, folder)}'"
                 )
 
-    def _get_video_transcripts(self, assembly_api_key: str):
-        final_assets_paths = [
-            os.path.join(self.final_assets_path, path)
-            for path in os.listdir(self.final_assets_path)
-        ]
-
+    def _get_video_transcripts(
+        self, assembly_api_key: str, final_assets_path: List[str], get_audio: bool = True
+    ):
         audio_output_path = os.path.abspath("./video_audio")
-        audio_paths = self._convert_files_audio(
-            file_type="mov",
-            file_paths=final_assets_paths,
-            output_path=audio_output_path,
-        )
-        if not audio_paths:
-            logger.error("No audio files found")
-            return
+        if get_audio:
+            audio_paths = self._convert_files_audio(
+                file_type="mov",
+                file_paths=final_assets_path,
+                output_path=audio_output_path,
+            )
+        else:
+            audio_paths = [os.path.join(audio_output_path, audio_name) for audio_name in os.listdir(audio_output_path)]
 
-        logger.info(f"Total number of audio files: {len(audio_paths)}")
+        audio_paths_len = len(audio_paths)
+        if not audio_paths_len:
+            raise Exception("No audio files found")
+
+        logger.info(f"Total number of audio files: {audio_paths_len}")
         assembly_ai = AssemblyAI(api_key=assembly_api_key)
         all_transcripts = []
         for audio_path in audio_paths:
+            audio_transcription = assembly_ai.get_audio_transcription(audio_path)
+            if not audio_transcription:
+                raise Exception("No audio transcription")
+            logger.info(f"Audio text: {audio_transcription['text']}")
             parsed_transcript = assembly_ai.parse_transcript(
-                assembly_ai.get_audio_transcription(audio_path)
+                audio_transcription
             )
             append_dict = {
                 "parsed_transcript": parsed_transcript,
@@ -321,7 +371,7 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         audio_paths = []
         for file_path in file_paths:
             video = VideoFileClip(file_path)
-            video_name = os.path.basename(file_path).split(".")[0]
+            video_name = ".".join(os.path.basename(file_path).split(".")[:-1])
             audio_path = os.path.join(output_path, f"{video_name}.mp3")
             video_audio = video.audio
             if not video_audio:
@@ -439,6 +489,55 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
                 raise Exception("video_full_path is required.")
             else:
                 return "." + video_full_path.split("/video_utilities")[-1]
+
+    def __shorten_transcript(self, video_transcript_sentences: List[str]):
+        """Function to take a progress update video transcript and remove all the unnecessary parts. Only get the short 10 - 20 second long transcript where I actually say what I have done"""
+        prompt = f"""Here is the the transcript sentences of a progress update youtube video of mine: {video_transcript_sentences}. Your job is to only get the 3 - 5 sentences where I say what day it is, what I have done, what I have learnt if I have specified that, along with a little bit more detail of what I have done. 
+
+        Here is the order of what you should output in. Only 3 - 5 sentences.
+        1. Introduction sentence, what day it is.
+        2. What I have done today, only the biggest thing I have done.
+        3. What I have learnt.
+
+        Here is an example input and output, so that you have a better idea of how you should respond: 
+        ### Input Example:
+        [
+            "Hello, so today is day x, and today is a x day.",
+            "So today, I have worked on x.",
+            "Additionally, I have also worked on x. I made a bunch of progress, will continue next week.",
+            "Here is a quick showcase."
+            "So that is what I have done today.",
+            "The topic of today: x."
+            "Number 1: x. It is important if you want to achieve x because it has x, which is really beneficial.",
+            "Number 2: x. If you keep doing that, the effects are x.",
+            "Number 3: x. It makes so that you can x, which will do x.",
+            "So, what have I learnt today?",
+            "I have learnt x.",
+            "I also became more familiar with using x.",
+            "So that is it for today. See you again tomorrow! Peace."
+        ]
+        ### Output Example: (This is an example of how you should output).
+        [
+            "Hello, so today is day x, and today is a x day.",
+            "So today, I have worked on x.",
+            "I have learnt x.",
+            "I also became more familiar with using x.",
+        ]
+
+        Make sure to keep the sentences the exact same, don't modify the sentences strings at all.
+        """
+        completion = ChatCompletion(
+            llm_type="ollama",
+            llm_model="llama3",
+            ollama_base_url=self.ollama_base_url,
+        )
+        response = completion.generate(user_message=prompt, json_format=True)
+        if not isinstance(response, dict):
+            raise Exception(
+                f"Response is not a dictionary. Response: {response}"
+            )
+
+        return response
 
 
 class GoogleDriveVideoEditorUtils(DriveVideoEditor):
