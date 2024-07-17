@@ -40,6 +40,7 @@ class DriveVideoEditor:
         self.debugging_output_assets_path = os.path.abspath(
             "./debugging_output_assets"
         )
+        os.makedirs(self.debugging_output_assets_path, exist_ok=True)
         self.chrome_profile_path = chrome_profile_path
 
 
@@ -78,12 +79,21 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
         logger.info(
             f"Total number of remaining assets: {len(remaining_assets_paths)}"
         )
-        video_transcripts = self._get_video_transcripts(
-            assembly_api_key, remaining_assets_paths, get_audio=False,
-        )
+
+        debug_video_transcripts_path = os.path.join(self.debugging_output_assets_path, "all_video_transcripts.json")
+        if self.debugging and os.path.exists(debug_video_transcripts_path):
+            with open(debug_video_transcripts_path, "r") as f:
+                video_transcripts = json.load(f)
+        else:
+            video_transcripts = self._get_video_transcripts(
+                assembly_api_key, remaining_assets_paths, get_audio=False,
+            )
+            with open(debug_video_transcripts_path, "w") as f:
+                f.write(json.dumps(video_transcripts, indent=4))
+
         final_videos_transcripts_sentences = [
             self.__shorten_transcript(
-                [dict["sentence"] for dict in video_transcript]
+                [dict["sentence"] for dict in video_transcript["parsed_transcript"]]
             )
             for video_transcript in video_transcripts
         ]
@@ -342,6 +352,9 @@ class GoogleDriveVideoAdder(DriveVideoEditor):
             parsed_transcript = assembly_ai.parse_transcript(
                 audio_transcription
             )
+
+            # DEBUGGING PURPOSES
+            # parsed_transcript_words = [dict["sentence"].split(" ") for dict in parsed_transcript]
             append_dict = {
                 "parsed_transcript": parsed_transcript,
                 "audio_path": audio_path,
